@@ -132,6 +132,15 @@ class Tetris:
   def connect_piece(self):
     # Connect the piece as part of the 'background' can't be moved anymore
     self.game_block += self.game_piece
+    # Check to see if something breaks
+    check = reduce(lambda x,y: x*y, np.split(self.game_block[1:BOARD_WIDTH-1,1:BOARD_HEIGHT-1],BOARD_WIDTH-2))
+    if np.sum(check) != 0:
+      loc = np.where(check != 0)[1]
+      score = len(loc)
+      i = loc[-1]+1
+      while i > 1:
+        self.game_block[1:BOARD_WIDTH-1,i] = self.game_block[1:BOARD_WIDTH-1,max(i-score,0)]
+	i -= 1
     self.generate_new_piece()
 
   def generate_new_piece(self):
