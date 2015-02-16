@@ -19,6 +19,9 @@ STARTING_SPEED = 1000
 
 SQUARE_LENGTH = 20
 
+# The position of the score text on the screen
+SCORE_POSITION = (300, 200)
+
 # The number of different piece configurations
 NUM_PIECE_TYPES = 7
 
@@ -52,6 +55,11 @@ class Tetris:
     self.game_piece = np.zeros((BOARD_WIDTH,BOARD_HEIGHT))
 
     self._rects = []
+
+    self.font =pygame.font.Font(None,30)
+    self.score = 0
+    self.score_text = self.font.render("Score: "+str(self.score), 1,(255,255,255))
+    DISPLAYSURF.blit(self.score_text, SCORE_POSITION)
 
     self.piece_types = []
     self.setup_piece_types()
@@ -91,7 +99,8 @@ class Tetris:
           # Drop the piece rapidly
 
           #TEMP testing rects
-          self.move_piece_down()
+	  #self.move_piece_down()
+	  pass
         elif event.type == KEYDOWN and event.key == K_RIGHT:
           self.move_piece_sideways(1)
         elif event.type == KEYDOWN and event.key == K_LEFT:
@@ -102,6 +111,9 @@ class Tetris:
           self.generate_new_piece()
         elif event.type == KEYDOWN and event.key == K_SPACE:
           self.connect_piece()
+	keys = pygame.key.get_pressed()
+	if keys[pygame.K_DOWN]:
+          self.move_piece_down()
       self.draw()
 
   def reset(self):
@@ -127,6 +139,7 @@ class Tetris:
       for j in range(BOARD_HEIGHT):
         if self.game_state[i,j] != 0:
           pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 4)
+    DISPLAYSURF.blit(self.score_text, SCORE_POSITION)
     pygame.display.update()
 
   def connect_piece(self):
@@ -141,6 +154,8 @@ class Tetris:
       while i > 1:
         self.game_block[1:BOARD_WIDTH-1,i] = self.game_block[1:BOARD_WIDTH-1,max(i-score,0)]
 	i -= 1
+      self.score += score
+      self.score_text = self.font.render("Score: "+str(self.score), 1,(255,255,255))
     self.generate_new_piece()
 
   def generate_new_piece(self):
