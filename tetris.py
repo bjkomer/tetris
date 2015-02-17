@@ -84,8 +84,11 @@ class Tetris:
     # Reset game board
     self.reset()
     pygame.time.set_timer(CLOCK_TICK, STARTING_SPEED)
+    self.play_speed = STARTING_SPEED
+    self.playing = True
+    self.generate_new_piece()
 
-    while True:
+    while self.playing:
       for event in pygame.event.get():
         if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
           pygame.quit()
@@ -99,8 +102,7 @@ class Tetris:
           # Drop the piece rapidly
 
           #TEMP testing rects
-	  #self.move_piece_down()
-	  pass
+	        self.move_piece_down()
         elif event.type == KEYDOWN and event.key == K_RIGHT:
           self.move_piece_sideways(1)
         elif event.type == KEYDOWN and event.key == K_LEFT:
@@ -111,9 +113,9 @@ class Tetris:
           self.generate_new_piece()
         elif event.type == KEYDOWN and event.key == K_SPACE:
           self.connect_piece()
-	keys = pygame.key.get_pressed()
-	if keys[pygame.K_DOWN]:
-          self.move_piece_down()
+      #keys = pygame.key.get_pressed()
+      #if keys[pygame.K_DOWN]:
+      #  self.move_piece_down()
       self.draw()
 
   def reset(self):
@@ -138,7 +140,8 @@ class Tetris:
     for i in range(BOARD_WIDTH):
       for j in range(BOARD_HEIGHT):
         if self.game_state[i,j] != 0:
-          pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 4)
+          #pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 4)
+          pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 0)
     DISPLAYSURF.blit(self.score_text, SCORE_POSITION)
     pygame.display.update()
 
@@ -156,6 +159,14 @@ class Tetris:
 	i -= 1
       self.score += score
       self.score_text = self.font.render("Score: "+str(self.score), 1,(255,255,255))
+      # Increase the speed of pieces falling
+      self.play_speed = max(self.play_speed * (.95 ** score), 100)
+      pygame.time.set_timer(CLOCK_TICK, self.play_speed)
+
+    # Check to see if the user lost the game
+    if np.sum(self.game_block[1:BOARD_WIDTH-1,0]) != 0:
+      self.playing = False
+
     self.generate_new_piece()
 
   def generate_new_piece(self):
