@@ -8,8 +8,21 @@ WINDOW_HEIGHT = 480
 BOARD_WIDTH = 12
 BOARD_HEIGHT = 22
 
+PREVIEW_WIDTH = 8
+PREVIEW_HEIGHT = 8
+
+# Top Corner of the preview window
+PREVIEW_X = 260
+PREVIEW_Y = 10
+
 XMARGIN = 10
 YMARGIN = 10
+
+# A threshold for how long you have to hold a key down to register a movement
+HOLD_THRESHOLD = 200
+
+# Move down quicker than left/right
+DOWN_HOLD_THRESHOLD = 20
 
 # Event ID for clock tick (for making pieces fall)
 CLOCK_TICK = USEREVENT + 1
@@ -55,6 +68,7 @@ class Tetris:
     self.game_piece = np.zeros((BOARD_WIDTH,BOARD_HEIGHT))
 
     self._rects = []
+    self._preview_rects = []
 
     self.font =pygame.font.Font(None,30)
     self.score = 0
@@ -75,6 +89,14 @@ class Tetris:
                          SQUARE_LENGTH,
                          SQUARE_LENGTH))
         self._rects[i].append(r)
+    for i in range(PREVIEW_WIDTH):
+      self._preview_rects.append([])
+      for j in range(PREVIEW_HEIGHT):
+        r = pygame.Rect((PREVIEW_X + (i*SQUARE_LENGTH), 
+                         PREVIEW_Y + (j*SQUARE_LENGTH),
+                         SQUARE_LENGTH,
+                         SQUARE_LENGTH))
+        self._preview_rects[i].append(r)
     
     while True:
       self.run_game()
@@ -86,6 +108,8 @@ class Tetris:
     pygame.time.set_timer(CLOCK_TICK, STARTING_SPEED)
     self.play_speed = STARTING_SPEED
     self.playing = True
+    i = int(np.random.random()*NUM_PIECE_TYPES)
+    self.next_piece = i
     self.generate_new_piece()
 
     while self.playing:
@@ -113,9 +137,31 @@ class Tetris:
           self.generate_new_piece()
         elif event.type == KEYDOWN and event.key == K_SPACE:
           self.connect_piece()
-      #keys = pygame.key.get_pressed()
-      #if keys[pygame.K_DOWN]:
-      #  self.move_piece_down()
+      keys = pygame.key.get_pressed()
+      if keys[pygame.K_DOWN]:
+        self.down_count += 1
+        if self.down_count > DOWN_HOLD_THRESHOLD:
+          self.move_piece_down()
+          self.down_count = 0
+      else:
+        self.down_count = 0
+
+      if keys[pygame.K_LEFT]:
+        self.left_count += 1
+        if self.left_count > HOLD_THRESHOLD:
+          self.move_piece_sideways(-1)
+          self.left_count = 0
+      else:
+        self.left_count = 0
+
+      if keys[pygame.K_RIGHT]:
+        self.right_count += 1
+        if self.right_count > HOLD_THRESHOLD:
+          self.move_piece_sideways(1)
+          self.right_count = 0
+      else:
+        self.right_count = 0
+
       self.draw()
 
   def reset(self):
@@ -134,6 +180,10 @@ class Tetris:
     self.game_block[-1,:] = 8
     self.game_block[0,:] = 8
 
+    # Reset score
+    self.score = 0
+    self.score_text = self.font.render("Score: "+str(self.score), 1,(255,255,255))
+
   def draw(self):
     DISPLAYSURF.fill(BLACK)
     self.game_state = self.game_block + self.game_piece
@@ -142,6 +192,10 @@ class Tetris:
         if self.game_state[i,j] != 0:
           #pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 4)
           pygame.draw.rect(DISPLAYSURF, get_colour(self.game_state[i,j]), self._rects[i][j], 0)
+    for i in range(PREVIEW_WIDTH):
+      for j in range(PREVIEW_HEIGHT):
+        if self.preview_display[i,j] != 0:
+          pygame.draw.rect(DISPLAYSURF, get_colour(self.preview_display[i,j]), self._preview_rects[i][j], 0)
     DISPLAYSURF.blit(self.score_text, SCORE_POSITION)
     pygame.display.update()
 
@@ -157,11 +211,11 @@ class Tetris:
       while i > 1:
         self.game_block[1:BOARD_WIDTH-1,i] = self.game_block[1:BOARD_WIDTH-1,max(i-score,0)]
 	i -= 1
-      self.score += score
+      self.score += score ** 2
       self.score_text = self.font.render("Score: "+str(self.score), 1,(255,255,255))
       # Increase the speed of pieces falling
-      self.play_speed = max(self.play_speed * (.95 ** score), 100)
-      pygame.time.set_timer(CLOCK_TICK, self.play_speed)
+      self.play_speed = max(self.play_speed * (.95 ** (score ** 2)), 100)
+      pygame.time.set_timer(CLOCK_TICK, int(self.play_speed))
 
     # Check to see if the user lost the game
     if np.sum(self.game_block[1:BOARD_WIDTH-1,0]) != 0:
@@ -171,8 +225,9 @@ class Tetris:
 
   def generate_new_piece(self):
     i = int(np.random.random()*NUM_PIECE_TYPES)
-    self.game_piece = self.piece_types[i].copy()
-    rot = 0
+    self.game_piece = self.piece_types[self.next_piece].copy()
+    self.next_piece = i
+    self.preview_display = self.preview[i]
 
   def move_piece_down(self):
     # Attempts to move the piece down by one space
@@ -263,6 +318,43 @@ class Tetris:
     self.piece_types.append(S2)
     self.piece_types.append(T)
 
+    # Set up previews of pieces
+
+    self.preview = []
+    for i in range(NUM_PIECE_TYPES):
+      self.preview.append( np.zeros((8,8)) )
+      # Set up borders
+      self.preview[i][:,0] = 8
+      self.preview[i][:,-1] = 8
+      self.preview[i][0,:] = 8
+      self.preview[i][-1,:] = 8
+
+    # Line
+    self.preview[0][2:6,4] = 1
+    
+    # Square
+    self.preview[1][3:5,3:5] = 2
+    
+    # L1
+    self.preview[2][3:6,4] = 3
+    self.preview[2][5,3] = 3
+    
+    # L2
+    self.preview[3][3:6,4] = 4
+    self.preview[3][3,3] = 4
+    
+    # S1
+    self.preview[4][3:5,3] = 5
+    self.preview[4][4:6,4] = 5
+    
+    # S2
+    self.preview[5][3:5,4] = 6
+    self.preview[5][4:6,3] = 6
+    
+    # T
+    self.preview[6][3,3] = 7
+    self.preview[6][2:5,4] = 7
+
 def get_colour(i):
   if i == 1:
     return GREEN
@@ -282,8 +374,6 @@ def get_colour(i):
     return WHITE
   else:
     return BLACK
-
-
 
 if __name__ == '__main__':
   t = Tetris()
